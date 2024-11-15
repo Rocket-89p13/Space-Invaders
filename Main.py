@@ -6,20 +6,28 @@ from Bullet import Bullet
 from Enemy import Enemy
 from Player import Player
 from Sounds import Sounds
+from Wall import Wall
 
 def init_enemies(images):
     enemies = []
     for i in range(0, 11, 1):
-        enemies.append(Enemy(images[4], images[5], (i * 62.5) + 100, 150, 2, 30))
+        enemies.append(Enemy(images[4], images[5], (i * 62.5) + 100, 168, 2, 30))
     for i in range(0, 11, 1):
-        enemies.append(Enemy(images[0], images[1], (i * 62.5) + 100, 200, 0, 20))
+        enemies.append(Enemy(images[0], images[1], (i * 62.5) + 100, 218, 0, 20))
     for i in range(0, 11, 1):
-        enemies.append(Enemy(images[0], images[1], (i * 62.5) + 100, 250, 0, 20))
+        enemies.append(Enemy(images[0], images[1], (i * 62.5) + 100, 268, 0, 20))
     for i in range(0, 11, 1):
-        enemies.append(Enemy(images[2], images[3], (i * 62.5) + 100, 300, 1, 10))
+        enemies.append(Enemy(images[2], images[3], (i * 62.5) + 100, 318, 1, 10))
     for i in range(0, 11, 1):
-        enemies.append(Enemy(images[2], images[3], (i * 62.5) + 100, 350, 1, 10))
+        enemies.append(Enemy(images[2], images[3], (i * 62.5) + 100, 368, 1, 10))
     return enemies
+
+def init_walls(width, height):
+    walls = []
+    spacing = (width - 192)//4
+    for i in range(0, 4, 1):
+        walls.append(Wall((spacing * i) + 150, height - 200))
+    return walls
 
 def increase_enemy_speed(enemies, speed):
     for i in range(len(enemies)):
@@ -61,20 +69,17 @@ def write_high_score(filename, score):
     f.close()
     return True
 
-def update(player, player_bullets, enemies, enemy_bullets, sounds, ufo, width):
+def update(player, player_bullets, enemies, enemy_bullets, sounds, ufo, walls, width, height):
     player.update()
 
-    for i in range(len(player_bullets)):
-        player_bullets[i].update()
-
-    for i in range(len(enemies)):
-        enemies[i].update()
-    
-    for i in range(len(enemy_bullets)):
-        enemy_bullets[i].update()
-
-    for i in range(len(ufo)):
-        ufo[i].update()
+    for bullet in player_bullets:
+        bullet.update()
+    for alien in enemies:
+        alien.update()
+    for bullet in enemy_bullets:
+        bullet.update()
+    for u in ufo:
+        u.update()
     
     for i in range(len(enemies)):
         if enemies[i].x <= 0:
@@ -83,6 +88,8 @@ def update(player, player_bullets, enemies, enemy_bullets, sounds, ufo, width):
         if(enemies[i].x >= width - 32):
             shift_enemies_down(enemies, -1)
             break
+        if (enemies[i].y >= height - 100):
+            player.lives = 0
 
     for u in ufo:
         if u.x < -32 or u.x > width + 32:
@@ -91,6 +98,12 @@ def update(player, player_bullets, enemies, enemy_bullets, sounds, ufo, width):
                 sounds.ufo_entered.stop()
 
     for bullet in player_bullets:
+        for wall in walls:
+            for block in wall.blocks:
+                if pygame.Rect.colliderect(pygame.Rect(bullet.collision_rect()), pygame.Rect(block.collision_rect())):
+                    wall.blocks.remove(block)
+                    player_bullets.remove(bullet) 
+                    return
         for enemy in enemies:
             if pygame.Rect.colliderect(pygame.Rect(bullet.collision_rect()), pygame.Rect(enemy.collision_rect())):
                 player.score += enemy.points
@@ -98,6 +111,7 @@ def update(player, player_bullets, enemies, enemy_bullets, sounds, ufo, width):
                 enemies.remove(enemy)
                 sounds.enemy_killed.play()
                 increase_enemy_speed(enemies, random.uniform(0, 0.1))
+                return
         for u in ufo:
             if pygame.Rect.colliderect(pygame.Rect(bullet.collision_rect()), pygame.Rect(u.collision_rect())):
                 player.score += u.points
@@ -106,6 +120,7 @@ def update(player, player_bullets, enemies, enemy_bullets, sounds, ufo, width):
                 if sounds.ufo_sound_playing():
                     sounds.ufo_entered.stop()
                 sounds.ufo_dieing.play()
+                return
                 
     for bullet in enemy_bullets:
         if pygame.Rect.colliderect(pygame.Rect(bullet.collision_rect()), pygame.Rect(player.collision_rect())):
@@ -114,14 +129,21 @@ def update(player, player_bullets, enemies, enemy_bullets, sounds, ufo, width):
             sounds.player_dieing.play()
             #respawn player
             print("Player hit")
+            return
+        for wall in walls:
+            for block in wall.blocks:
+                if pygame.Rect.colliderect(pygame.Rect(bullet.collision_rect()), pygame.Rect(block.collision_rect())):
+                    wall.blocks.remove(block)
+                    enemy_bullets.remove(bullet) 
+                    return
     for enemy in enemies:
         if pygame.Rect.colliderect(pygame.Rect(enemy.collision_rect()), player.collision_rect()): 
             player.lives -= 1
             print("Game over")
-            pass
+            return
     
 
-def draw(screen, background, font, player, player_bullets, enemies, enemy_bullets, ufo, width, height, high_score):
+def draw(screen, background, font, player, player_bullets, enemies, enemy_bullets, ufo, walls, width, height, high_score):
     screen.blit(background, (0, 0))
 
     player_1_score_title = font.render("SCORE < 1 >", False, (255, 255, 255))
@@ -141,30 +163,31 @@ def draw(screen, background, font, player, player_bullets, enemies, enemy_bullet
     screen.blit(credit, (width - 250, height - 35))
 
     player.draw(screen)
-    for i in range(len(player_bullets)):
-        player_bullets[i].draw(screen)
-    for i in range(len(enemies)):
-        enemies[i].draw(screen)
-    for i in range(len(enemy_bullets)):
-        enemy_bullets[i].draw(screen)
-    for i in range(len(ufo)):
-        ufo[i].draw(screen)
+    for bullet in player_bullets:
+        bullet.draw(screen)
+    for alien in enemies:
+        alien.draw(screen)
+    for bullet in enemy_bullets:
+        bullet.draw(screen)
+    for u in ufo:
+        u.draw(screen)
+    for wall in walls:
+        wall.draw(screen)
 
     pygame.display.flip()
 
 def main():
     pygame.init()
-    font = pygame.font.Font('Space Invaders Python/Resources/fonts/space_invaders.ttf', 28)
-    player_ship = pygame.image.load('Space Invaders Python/Resources/images/player ship.png')
-    enemy_1_image_1 = pygame.image.load('Space Invaders Python/Resources/images/Crab (1).png')
-    enemy_1_image_2 = pygame.image.load('Space Invaders Python/Resources/images/Crab (2).png')
-    enemy_2_image_1 = pygame.image.load('Space Invaders Python/Resources/images/Octopus (1).png')
-    enemy_2_image_2 = pygame.image.load('Space Invaders Python/Resources/images/Octopus (2).png')
-    enemy_3_image_1 = pygame.image.load('Space Invaders Python/Resources/images/Squid (1).png')
-    enemy_3_image_2 = pygame.image.load('Space Invaders Python/Resources/images/Squid (2).png')
-    enemy_4_image = pygame.image.load('Space Invaders Python/Resources/images/UFO.png')
+    font = pygame.font.Font('Resources/fonts/space_invaders.ttf', 28)
+    player_ship = pygame.image.load('Resources/images/player ship.png')
+    enemy_1_image_1 = pygame.image.load('Resources/images/Crab (1).png')
+    enemy_1_image_2 = pygame.image.load('Resources/images/Crab (2).png')
+    enemy_2_image_1 = pygame.image.load('Resources/images/Octopus (1).png')
+    enemy_2_image_2 = pygame.image.load('Resources/images/Octopus (2).png')
+    enemy_3_image_1 = pygame.image.load('Resources/images/Squid (1).png')
+    enemy_3_image_2 = pygame.image.load('Resources/images/Squid (2).png')
+    enemy_4_image = pygame.image.load('Resources/images/UFO.png')
     enemy_images = [enemy_1_image_1, enemy_1_image_2, enemy_2_image_1, enemy_2_image_2, enemy_3_image_1, enemy_3_image_2]
-    #pygame.mixer.music.load('Space Invaders Python/Resources/sounds/05-Attack of the Invaders.wav')
     width = height = 900
     screen = pygame.display.set_mode((width, height))
     pygame.display.set_caption('Space Invaders')
@@ -172,12 +195,13 @@ def main():
     background = pygame.Surface(screen.get_size())
     background = background.convert()
     background.fill((0, 0, 0))
-    high_score = read_high_score("Space Invaders Python/high score.txt")
+    high_score = read_high_score("high score.txt")
     sounds = Sounds()
     player_bullets = []
     enemies = []
     ufo = []
     enemy_bullets = []
+    walls = init_walls(width, height)
     enemies = init_enemies(enemy_images)
     player = Player(player_ship, width // 2, height - 100)
     level = 1
@@ -185,22 +209,22 @@ def main():
     FPS = 60
     clock = pygame.time.Clock()
     enemy_shooting_timer = time.time()
+    pygame.mixer.music.play(-1)
 
     while(running):
         clock.tick(FPS)
         # game over
         if player.lives == 0:
             if(high_score < player.score):
-                write_high_score("Space Invaders Python\high score.txt", player.score)
+                write_high_score("high score.txt", player.score)
             running = False
         # reset
         if len(enemies) == 0:
             level += 1
             enemies = init_enemies(enemy_images)
+            walls = init_walls(width, height)
             player_bullets = []
             enemy_bullets = []
-        if not pygame.mixer.music.get_busy():
-            pygame.mixer.music.play()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -214,7 +238,7 @@ def main():
             player.vel_x = 0
 
         if key[pygame.K_SPACE] == True and len(player_bullets) < 1:
-            player_bullets.append(Bullet((player.x + player.width // 2) - 4, player.y, 3, 8))  
+            player_bullets.append(Bullet((player.x + player.width // 2) - 4, player.y, 3, 8))
             sounds.player_shooting.play()
         
         player_bullets = [b for b in player_bullets if b.y > 100]
@@ -225,7 +249,7 @@ def main():
             spawn_ufo(enemy_4_image, ufo, width)
             sounds.play_ufo_sound()
         
-        update(player, player_bullets, enemies, enemy_bullets, sounds, ufo, width)
-        draw(screen, background, font, player, player_bullets, enemies, enemy_bullets, ufo, width, height, high_score)
+        update(player, player_bullets, enemies, enemy_bullets, sounds, ufo, walls , width, height)
+        draw(screen, background, font, player, player_bullets, enemies, enemy_bullets, ufo, walls, width, height, high_score)
         
 if __name__ == '__main__': main()

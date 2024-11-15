@@ -10,7 +10,7 @@ class Bullet:
         self.green = (0, 255, 0)
         self.red = (255, 0, 0)
         self.color = self.white
-        self.vel_y = -12
+        self.vel_y = -10
 
     def update(self):
         self.y += self.vel_y
